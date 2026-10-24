@@ -185,7 +185,7 @@ export interface DeliveryPartner {
   todaysDeliveries: number;
   todaysEarnings: number;
   currentOrderId?: string;
-  status: 'pending_approval' | 'active' | 'suspended';
+  status: 'pending_approval' | 'active' | 'suspended' | 'approved' | 'rejected';
 }
 
 export interface Review {
