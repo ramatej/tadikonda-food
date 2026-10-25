@@ -9,6 +9,8 @@ import React, {
 import { User, UserRole, PublicRegistrationRole, ROLE_DESTINATIONS } from '../types';
 import { supabaseAuthService } from '../services/supabase/supabaseAuthService';
 import { supabase, isSupabaseConfigured } from '../services/supabase/client';
+// Vite dev flag – true only when running `npm run dev`
+const isDev = import.meta.env.DEV;
 import { authService as mockAuthService } from '../services/mock';
 import { TADIKONDA_LOCALITIES } from '../config/constants';
 import { useToast } from './ToastContext';
@@ -107,12 +109,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // ── Auth operations ───────────────────────────────────────────────────────
   const loginWithEmail = useCallback(async (email: string, pass: string): Promise<AuthResult> => {
     if (!isSupabaseConfigured) {
-      // Demo fallback
-      const result = await mockAuthService.loginWithEmail(email, pass);
-      if (result.user) {
-        setUser(result.user);
+      if (isDev) {
+        // Demo fallback (mock) – only in development
+        const result = await mockAuthService.loginWithEmail(email, pass);
+        if (result.user) {
+          setUser(result.user);
+        }
+        return result;
       }
-      return result;
+      // Production: Supabase not configured -> clear error
+      throw new Error('Supabase authentication is not configured for this environment.');
     }
     const result = await supabaseAuthService.loginWithEmail(email, pass);
     if (result.user) {
@@ -123,18 +129,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const sendPhoneOtp = useCallback(async (phone: string): Promise<{ success: boolean; message: string }> => {
     if (!isSupabaseConfigured) {
-      return mockAuthService.sendPhoneOtp(phone);
+      if (isDev) {
+        // Demo mock OTP – development only
+        return mockAuthService.sendPhoneOtp(phone);
+      }
+      throw new Error('Supabase authentication is not configured for this environment.');
     }
     return supabaseAuthService.sendPhoneOtp(phone);
   }, []);
 
   const verifyPhoneOtp = useCallback(async (phone: string, token: string): Promise<AuthResult> => {
     if (!isSupabaseConfigured) {
-      const result = await mockAuthService.verifyPhoneOtp(phone, token);
-      if (result.user) {
-        setUser(result.user);
+      if (isDev) {
+        const result = await mockAuthService.verifyPhoneOtp(phone, token);
+        if (result.user) {
+          setUser(result.user);
+        }
+        return result;
       }
-      return result;
+      throw new Error('Supabase authentication is not configured for this environment.');
     }
     const result = await supabaseAuthService.verifyPhoneOtp(phone, token);
     if (result.user) {
@@ -152,11 +165,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       password: string
     ): Promise<AuthResult> => {
       if (!isSupabaseConfigured) {
-        const result = await mockAuthService.register(name, email, phone, role, password);
-        if (result.user) {
-          setUser(result.user);
+        if (isDev) {
+          const result = await mockAuthService.register(name, email, phone, role, password);
+          if (result.user) {
+            setUser(result.user);
+          }
+          return result;
         }
-        return result;
+        throw new Error('Supabase authentication is not configured for this environment.');
       }
       const result = await supabaseAuthService.register(name, email, phone, role, password);
       if (result.user) {
@@ -172,10 +188,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem('tkd_food_cart_v1');
     } catch {}
     if (!isSupabaseConfigured) {
-      await mockAuthService.logout();
-      setUser(null);
-      showToast('Logged out successfully', 'info');
-      return;
+      if (isDev) {
+        await mockAuthService.logout();
+        setUser(null);
+        showToast('Logged out successfully', 'info');
+        return;
+      }
+      throw new Error('Supabase authentication is not configured for this environment.');
     }
     await supabaseAuthService.logout();
     setUser(null);
