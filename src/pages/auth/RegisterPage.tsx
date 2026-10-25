@@ -5,7 +5,7 @@ import { useToast } from '../../context/ToastContext';
 import { PublicRegistrationRole } from '../../types';
 import { Button } from '../../components/ui/Button';
 import { CheckCircle2, UtensilsCrossed } from 'lucide-react';
-import { supabaseAuthService } from '../../services/supabase/supabaseAuthService';
+import { validateAndNormalizeIndianPhone } from '../../utils/phoneUtils';
 
 const ROLE_OPTIONS: { r: PublicRegistrationRole; label: string; description: string }[] = [
   { r: 'customer', label: 'Customer', description: 'Order food delivery' },
@@ -39,14 +39,15 @@ export const RegisterPage: React.FC = () => {
       showToast('Passwords do not match', 'error');
       return;
     }
-    if (phone.length < 10) {
-      showToast('Please enter a valid 10-digit mobile number', 'error');
+    const phoneValidation = validateAndNormalizeIndianPhone(phone);
+    if (!phoneValidation.isValid) {
+      showToast(phoneValidation.error || 'Please enter a valid Indian mobile number', 'error');
       return;
     }
 
     setIsLoading(true);
     try {
-      const result = await register(name, email, `+91 ${phone}`, role, password);
+      const result = await register(name, email, phoneValidation.e164, role, password);
 
       if (result.needsEmailVerification) {
         setRegisteredEmail(email);

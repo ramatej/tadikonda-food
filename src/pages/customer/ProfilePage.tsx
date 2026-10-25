@@ -73,7 +73,7 @@ export const ProfilePage: React.FC = () => {
         />
         <div className="flex-1 min-w-0">
           <h2 className="text-lg font-black text-gray-950 truncate">{user.name}</h2>
-          <p className="text-xs text-gray-500">{user.email}</p>
+          <p className="text-xs text-gray-500">{user.email || 'Mobile Verified Account'}</p>
           <p className="text-xs text-gray-500 font-mono mt-0.5">{user.phone}</p>
         </div>
       </div>

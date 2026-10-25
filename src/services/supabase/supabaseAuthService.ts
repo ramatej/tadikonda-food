@@ -67,9 +67,13 @@ export class SupabaseAuthService implements IAuthService {
 
       return {
         id: authUser.id,
-        name: profile?.full_name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
+        name:
+          profile?.full_name ||
+          authUser.user_metadata?.full_name ||
+          authUser.email?.split('@')[0] ||
+          (authUser.phone ? `Customer ${authUser.phone.slice(-4)}` : 'Customer'),
         email: authUser.email || '',
-        phone: profile?.phone || authUser.user_metadata?.phone || '',
+        phone: profile?.phone || authUser.phone || authUser.user_metadata?.phone || '',
         role: effectiveRole,
         avatarUrl: profile?.avatar_url || undefined,
         createdAt: profile?.created_at || authUser.created_at,
@@ -111,6 +115,72 @@ export class SupabaseAuthService implements IAuthService {
       user,
       needsEmailVerification: false,
       message: 'Login successful',
+    };
+  }
+
+  /**
+   * Request genuine phone OTP via Supabase Auth
+   * Uses signInWithOtp({ phone })
+   */
+  async sendPhoneOtp(phone: string): Promise<{ success: boolean; message: string }> {
+    const { error } = await supabase.auth.signInWithOtp({
+      phone,
+    });
+
+    if (error) {
+      const msg = error.message.toLowerCase();
+      if (
+        msg.includes('sms provider') ||
+        msg.includes('unsupported phone provider') ||
+        msg.includes('phone provider is disabled')
+      ) {
+        throw new Error(
+          'SMS gateway provider is not enabled on this Supabase project. Please configure an SMS provider (Twilio, MessageBird, or custom MSG91 Send SMS Hook) in the Supabase Dashboard, or sign in with Email & Password.'
+        );
+      }
+      if (msg.includes('rate limit') || msg.includes('too many requests')) {
+        throw new Error('Too many OTP requests. Please wait a minute before requesting another OTP.');
+      }
+      throw new Error(error.message || 'Failed to send OTP. Please check your phone number.');
+    }
+
+    return {
+      success: true,
+      message: `OTP sent successfully to ${phone}`,
+    };
+  }
+
+  /**
+   * Verify genuine phone OTP via Supabase Auth
+   * Uses verifyOtp({ phone, token, type: 'sms' })
+   */
+  async verifyPhoneOtp(phone: string, token: string): Promise<AuthResult> {
+    const { data, error } = await supabase.auth.verifyOtp({
+      phone,
+      token: token.trim(),
+      type: 'sms',
+    });
+
+    if (error) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes('expired')) {
+        throw new Error('The OTP has expired. Please request a new OTP.');
+      }
+      if (msg.includes('invalid') || msg.includes('token has expired or is invalid')) {
+        throw new Error('Invalid OTP. Please check the 6-digit code and try again.');
+      }
+      throw new Error(error.message || 'OTP verification failed.');
+    }
+
+    if (!data.user) {
+      throw new Error('Verification succeeded but user session could not be established.');
+    }
+
+    const user = await this.getCurrentUser();
+    return {
+      user,
+      needsEmailVerification: false,
+      message: 'Logged in successfully via mobile OTP',
     };
   }
 

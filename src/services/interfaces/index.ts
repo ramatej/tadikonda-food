@@ -21,6 +21,8 @@ export interface AuthResult {
 export interface IAuthService {
   getCurrentUser(): Promise<User | null>;
   loginWithEmail(email: string, password: string): Promise<AuthResult>;
+  sendPhoneOtp(phone: string): Promise<{ success: boolean; message: string }>;
+  verifyPhoneOtp(phone: string, token: string): Promise<AuthResult>;
   loginWithPhone?(phone: string, otp: string): Promise<User>;
   register(
     name: string,

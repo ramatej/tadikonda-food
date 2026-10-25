@@ -22,6 +22,8 @@ interface AuthContextType {
   selectedLocation: string;
   setSelectedLocation: (loc: string) => void;
   loginWithEmail: (email: string, pass: string) => Promise<AuthResult>;
+  sendPhoneOtp: (phone: string) => Promise<{ success: boolean; message: string }>;
+  verifyPhoneOtp: (phone: string, token: string) => Promise<AuthResult>;
   register: (
     name: string,
     email: string,
@@ -119,6 +121,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return result;
   }, []);
 
+  const sendPhoneOtp = useCallback(async (phone: string): Promise<{ success: boolean; message: string }> => {
+    if (!isSupabaseConfigured) {
+      return mockAuthService.sendPhoneOtp(phone);
+    }
+    return supabaseAuthService.sendPhoneOtp(phone);
+  }, []);
+
+  const verifyPhoneOtp = useCallback(async (phone: string, token: string): Promise<AuthResult> => {
+    if (!isSupabaseConfigured) {
+      const result = await mockAuthService.verifyPhoneOtp(phone, token);
+      if (result.user) {
+        setUser(result.user);
+      }
+      return result;
+    }
+    const result = await supabaseAuthService.verifyPhoneOtp(phone, token);
+    if (result.user) {
+      setUser(result.user);
+    }
+    return result;
+  }, []);
+
   const register = useCallback(
     async (
       name: string,
@@ -196,6 +220,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         selectedLocation,
         setSelectedLocation,
         loginWithEmail,
+        sendPhoneOtp,
+        verifyPhoneOtp,
         register,
         logout,
         resetPassword,

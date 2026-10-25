@@ -57,6 +57,30 @@ export class MockAuthService implements IAuthService {
     return { user, needsEmailVerification: false };
   }
 
+  async sendPhoneOtp(phone: string): Promise<{ success: boolean; message: string }> {
+    return {
+      success: true,
+      message: `Demo OTP 123456 sent to ${phone}`,
+    };
+  }
+
+  async verifyPhoneOtp(phone: string, token: string): Promise<AuthResult> {
+    if (token.trim() !== '123456' && token.trim() !== '1234') {
+      throw new Error('Invalid OTP. Please enter 123456 in Demo mode.');
+    }
+    const roleMatch = (Object.values(DEMO_USERS) as User[]).find((u) => u.phone === phone);
+    const user: User = roleMatch || {
+      id: `user_phone_${Date.now()}`,
+      name: `Customer ${phone.slice(-4)}`,
+      email: '',
+      phone,
+      role: 'customer' as UserRole,
+      createdAt: new Date().toISOString(),
+    };
+    mockStorage.setCurrentUser(user);
+    return { user, needsEmailVerification: false, message: 'Logged in successfully (Demo)' };
+  }
+
   async loginWithPhone(phone: string, _otp: string): Promise<User> {
     const roleMatch = (Object.values(DEMO_USERS) as User[]).find((u) => u.phone === phone);
     const user = roleMatch || {
