@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useOrders } from '../../context/OrderContext';
+import { useToast } from '../../context/ToastContext';
 import { Address } from '../../types';
 import { addressService } from '../../services';
 import { TADIKONDA_LOCALITIES, APP_CONFIG } from '../../config/constants';
@@ -12,11 +13,11 @@ import {
   ArrowLeft,
   MapPin,
   Plus,
-  ShieldAlert,
-  Banknote,
-  QrCode,
   CheckCircle2,
   Sparkles,
+  Banknote,
+  AlertCircle,
+  ShieldCheck,
 } from 'lucide-react';
 
 export const CheckoutPage: React.FC = () => {
@@ -24,12 +25,14 @@ export const CheckoutPage: React.FC = () => {
   const { cart, clearCart } = useCart();
   const { user } = useAuth();
   const { placeOrder } = useOrders();
+  const { showToast } = useToast();
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState(user?.phone || '');
   const [customerNotes, setCustomerNotes] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'upi_demo'>('cod');
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'gpay' | 'phonepe' | 'paytm'>('cod');
+  const [onlineNotice, setOnlineNotice] = useState<string | null>(null);
   const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -84,9 +87,36 @@ export const CheckoutPage: React.FC = () => {
     setLandmark('');
   };
 
+  const handleSelectPaymentMethod = (method: 'cod' | 'gpay' | 'phonepe' | 'paytm') => {
+    if (method === 'cod') {
+      setPaymentMethod('cod');
+      setOnlineNotice(null);
+    } else {
+      setPaymentMethod(method);
+      const names = {
+        gpay: 'Google Pay',
+        phonepe: 'PhonePe',
+        paytm: 'Paytm',
+      };
+      const name = names[method];
+      const message = `Online payment via ${name} is currently under integration. Please proceed with Cash on Delivery (COD) for fast delivery in Tadikonda.`;
+      setOnlineNotice(message);
+      showToast(`Online payment via ${name} is coming soon. Please select Cash on Delivery.`, 'info');
+    }
+  };
+
   const handlePlaceOrder = async () => {
+    if (isSubmitting) return;
+
     if (!selectedAddress) {
+      showToast('Please add or select a delivery address in Tadikonda.', 'error');
       setIsNewAddressModalOpen(true);
+      return;
+    }
+
+    if (paymentMethod !== 'cod') {
+      showToast('Online payments are under integration. Please select Cash on Delivery to place your order.', 'error');
+      setPaymentMethod('cod');
       return;
     }
 
@@ -110,15 +140,17 @@ export const CheckoutPage: React.FC = () => {
         cart.deliveryFee,
         cart.discount,
         cart.total,
-        paymentMethod,
+        'cod',
         customerNotes,
         cart.voucherCode
       );
 
       clearCart();
+      showToast('Order placed successfully with Cash on Delivery!', 'success');
       navigate(`/orders/${newOrder.id}`);
     } catch (e) {
       console.error(e);
+      showToast('Failed to place order. Please try again.', 'error');
       setIsSubmitting(false);
     }
   };
@@ -130,6 +162,7 @@ export const CheckoutPage: React.FC = () => {
         <button
           onClick={() => navigate('/cart')}
           className="w-10 h-10 rounded-full bg-white shadow-sm border border-gray-200 flex items-center justify-center text-gray-800 hover:bg-gray-50 active:scale-95 transition-all"
+          aria-label="Back to Cart"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
@@ -237,71 +270,189 @@ export const CheckoutPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Payment Option (Deferred integration notice) */}
+      {/* 3. Payment Method Selection */}
       <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-3">
-        <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
-          3. Payment Mode (Phase 1 Prototype)
-        </h2>
-
-        {/* Clear Notice about Deferred Payment */}
-        <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex items-start gap-2.5 text-xs text-amber-900">
-          <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-          <p className="leading-relaxed">
-            <strong>Payment Gateway Integration is Deferred:</strong> Real transactions and online payment processing will be connected with Supabase in the next phase. The order below is created as a demo order for workflow testing.
-          </p>
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
+            3. Payment Method
+          </h2>
+          <span className="text-[11px] text-gray-400 font-medium">Choose an option</span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-          <label
-            className={`p-3.5 rounded-2xl border cursor-pointer flex items-center gap-3 transition-all ${
-              paymentMethod === 'cod'
-                ? 'border-orange-500 bg-orange-50/50'
-                : 'border-gray-200 hover:bg-gray-50'
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup" aria-label="Checkout payment options">
+          {/* Option 1: Google Pay */}
+          <div
+            role="radio"
+            aria-checked={paymentMethod === 'gpay'}
+            tabIndex={0}
+            onClick={() => handleSelectPaymentMethod('gpay')}
+            className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
+              paymentMethod === 'gpay'
+                ? 'border-orange-500 bg-orange-50/40 shadow-sm'
+                : 'border-gray-200 hover:border-gray-300 bg-white'
             }`}
           >
-            <input
-              type="radio"
-              name="paymentMethod"
-              checked={paymentMethod === 'cod'}
-              onChange={() => setPaymentMethod('cod')}
-              className="text-orange-600 focus:ring-orange-500"
-            />
-            <div className="flex items-center gap-2">
-              <Banknote className="w-4 h-4 text-emerald-600" />
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-white border border-gray-200 shadow-sm flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4" viewBox="0 0 24 24">
+                  <path
+                    fill="#4285F4"
+                    d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.14-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
+                  />
+                  <path
+                    fill="#EA3323"
+                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                  />
+                </svg>
+              </div>
               <div>
-                <span className="font-bold text-xs text-gray-900 block">
+                <span className="font-extrabold text-xs text-gray-900 block">Google Pay</span>
+                <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.2 rounded-full">
+                  Under Integration
+                </span>
+              </div>
+            </div>
+            <div
+              className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                paymentMethod === 'gpay'
+                  ? 'border-orange-600 bg-orange-600 text-white'
+                  : 'border-gray-300'
+              }`}
+            >
+              {paymentMethod === 'gpay' && <CheckCircle2 className="w-3 h-3" />}
+            </div>
+          </div>
+
+          {/* Option 2: PhonePe */}
+          <div
+            role="radio"
+            aria-checked={paymentMethod === 'phonepe'}
+            tabIndex={0}
+            onClick={() => handleSelectPaymentMethod('phonepe')}
+            className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
+              paymentMethod === 'phonepe'
+                ? 'border-orange-500 bg-orange-50/40 shadow-sm'
+                : 'border-gray-200 hover:border-gray-300 bg-white'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[#5f259f] shadow-sm flex items-center justify-center shrink-0 text-white font-black text-xs">
+                पे
+              </div>
+              <div>
+                <span className="font-extrabold text-xs text-gray-900 block">PhonePe</span>
+                <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.2 rounded-full">
+                  Under Integration
+                </span>
+              </div>
+            </div>
+            <div
+              className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                paymentMethod === 'phonepe'
+                  ? 'border-orange-600 bg-orange-600 text-white'
+                  : 'border-gray-300'
+              }`}
+            >
+              {paymentMethod === 'phonepe' && <CheckCircle2 className="w-3 h-3" />}
+            </div>
+          </div>
+
+          {/* Option 3: Paytm */}
+          <div
+            role="radio"
+            aria-checked={paymentMethod === 'paytm'}
+            tabIndex={0}
+            onClick={() => handleSelectPaymentMethod('paytm')}
+            className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
+              paymentMethod === 'paytm'
+                ? 'border-orange-500 bg-orange-50/40 shadow-sm'
+                : 'border-gray-200 hover:border-gray-300 bg-white'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[#002970] shadow-sm flex items-center justify-center shrink-0 text-white font-black text-[10px] tracking-tight">
+                <span className="text-[#00BAF2]">Pay</span>tm
+              </div>
+              <div>
+                <span className="font-extrabold text-xs text-gray-900 block">Paytm</span>
+                <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.2 rounded-full">
+                  Under Integration
+                </span>
+              </div>
+            </div>
+            <div
+              className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                paymentMethod === 'paytm'
+                  ? 'border-orange-600 bg-orange-600 text-white'
+                  : 'border-gray-300'
+              }`}
+            >
+              {paymentMethod === 'paytm' && <CheckCircle2 className="w-3 h-3" />}
+            </div>
+          </div>
+
+          {/* Option 4: Cash on Delivery */}
+          <div
+            role="radio"
+            aria-checked={paymentMethod === 'cod'}
+            tabIndex={0}
+            onClick={() => handleSelectPaymentMethod('cod')}
+            className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
+              paymentMethod === 'cod'
+                ? 'border-orange-500 bg-orange-50/40 shadow-sm'
+                : 'border-gray-200 hover:border-gray-300 bg-white'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white shadow-sm flex items-center justify-center shrink-0">
+                <Banknote className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="font-extrabold text-xs text-gray-900 block">
                   Cash on Delivery (COD)
                 </span>
-                <span className="text-[10px] text-gray-500">Pay cash upon delivery in Tadikonda</span>
-              </div>
-            </div>
-          </label>
-
-          <label
-            className={`p-3.5 rounded-2xl border cursor-pointer flex items-center gap-3 transition-all ${
-              paymentMethod === 'upi_demo'
-                ? 'border-orange-500 bg-orange-50/50'
-                : 'border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            <input
-              type="radio"
-              name="paymentMethod"
-              checked={paymentMethod === 'upi_demo'}
-              onChange={() => setPaymentMethod('upi_demo')}
-              className="text-orange-600 focus:ring-orange-500"
-            />
-            <div className="flex items-center gap-2">
-              <QrCode className="w-4 h-4 text-blue-600" />
-              <div>
-                <span className="font-bold text-xs text-gray-900 block">
-                  UPI (GPay/PhonePe Demo)
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded-full">
+                  Available in Tadikonda
                 </span>
-                <span className="text-[10px] text-gray-500">Simulated UPI transfer</span>
               </div>
             </div>
-          </label>
+            <div
+              className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                paymentMethod === 'cod'
+                  ? 'border-orange-600 bg-orange-600 text-white'
+                  : 'border-gray-300'
+              }`}
+            >
+              {paymentMethod === 'cod' && <CheckCircle2 className="w-3 h-3" />}
+            </div>
+          </div>
         </div>
+
+        {/* Informational notice when an online method is selected */}
+        {onlineNotice && (
+          <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex items-start gap-2.5 text-xs text-amber-900">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-bold">Online Payment Notice</p>
+              <p className="leading-relaxed text-amber-800">{onlineNotice}</p>
+              <button
+                type="button"
+                onClick={() => handleSelectPaymentMethod('cod')}
+                className="font-black text-orange-700 hover:underline inline-block mt-0.5"
+              >
+                Select Cash on Delivery to place order
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 4. Order Summary Card */}
@@ -350,16 +501,34 @@ export const CheckoutPage: React.FC = () => {
       </div>
 
       {/* Place Order CTA Button */}
-      <Button
-        variant="pill-primary"
-        size="lg"
-        onClick={handlePlaceOrder}
-        isLoading={isSubmitting}
-        className="w-full text-base py-4 flex items-center justify-center gap-2"
-      >
-        <Sparkles className="w-5 h-5" />
-        <span>Place Order (₹{cart.total.toFixed(2)})</span>
-      </Button>
+      {paymentMethod === 'cod' ? (
+        <Button
+          variant="pill-primary"
+          size="lg"
+          onClick={handlePlaceOrder}
+          isLoading={isSubmitting}
+          className="w-full text-base py-4 flex items-center justify-center gap-2"
+        >
+          <Sparkles className="w-5 h-5" />
+          <span>Place Order with COD (₹{cart.total.toFixed(2)})</span>
+        </Button>
+      ) : (
+        <Button
+          variant="pill-primary"
+          size="lg"
+          onClick={() => handleSelectPaymentMethod('cod')}
+          className="w-full text-base py-4 flex items-center justify-center gap-2 bg-gradient-to-r from-orange-600 to-amber-600"
+        >
+          <Banknote className="w-5 h-5" />
+          <span>Switch to COD & Place Order (₹{cart.total.toFixed(2)})</span>
+        </Button>
+      )}
+
+      {/* Trust Badge */}
+      <div className="flex items-center justify-center gap-2 text-xs text-gray-400 font-medium">
+        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+        <span>100% Genuine Village Kitchen Delivery in Tadikonda</span>
+      </div>
 
       {/* Add New Address Modal */}
       <Modal

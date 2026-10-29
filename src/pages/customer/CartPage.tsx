@@ -16,6 +16,7 @@ import {
   Bike,
 } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
+import { PaymentSelectionModal } from '../../components/payment/PaymentSelectionModal';
 
 export const CartPage: React.FC = () => {
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ export const CartPage: React.FC = () => {
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
   const [voucherError, setVoucherError] = useState('');
   const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   const handleApplyVoucherCode = (code: string) => {
     setVoucherError('');
@@ -61,7 +63,7 @@ export const CartPage: React.FC = () => {
 
   return (
     <div className="max-w-md mx-auto pb-32 space-y-5">
-      {/* Header Styled Exactly like Screen 3 in Reference Screenshot */}
+      {/* Header */}
       <div className="flex items-center justify-between pt-1">
         <button
           onClick={() => navigate(-1)}
@@ -100,14 +102,14 @@ export const CartPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Cart Items List Container (Screen 3: Items list) */}
+      {/* Cart Items List Container */}
       <div className="bg-white p-4 sm:p-5 rounded-3xl border border-gray-100 shadow-sm space-y-1">
         {cart.items.map((item) => (
           <CartItemRow key={item.id} item={item} />
         ))}
       </div>
 
-      {/* Voucher Input Bar (Screen 3: "Enter your voucher code >") */}
+      {/* Voucher Input Bar */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3">
         {cart.voucherCode ? (
           <div className="flex items-center justify-between bg-emerald-50 text-emerald-900 p-3 rounded-xl border border-emerald-200">
@@ -148,7 +150,7 @@ export const CartPage: React.FC = () => {
         )}
       </div>
 
-      {/* Summary Breakdown (Screen 3: Subtotal, Delivery Fee, Dashed Line, Total) */}
+      {/* Summary Breakdown */}
       <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-3">
         <div className="flex items-center justify-between text-xs text-gray-600">
           <span>Subtotal:</span>
@@ -172,7 +174,7 @@ export const CartPage: React.FC = () => {
           </div>
         )}
 
-        {/* Dashed Separator Line (Screen 3 style) */}
+        {/* Dashed Separator Line */}
         <div className="border-b border-dashed border-gray-300 my-2" />
 
         <div className="flex items-center justify-between text-sm sm:text-base font-black text-gray-950">
@@ -187,7 +189,7 @@ export const CartPage: React.FC = () => {
         <span>Delivering in Tadikonda village in 20-25 mins with live status tracking.</span>
       </div>
 
-      {/* Sticky Bottom Bar Matching Screen 3 in Reference Screenshot */}
+      {/* Sticky Bottom Bar with Prominent Proceed to Payment Button */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur-md border-t border-gray-200 z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
         <div className="max-w-md mx-auto flex items-center gap-3">
           {/* Orange Total Amount Pill */}
@@ -195,12 +197,13 @@ export const CartPage: React.FC = () => {
             ₹{cart.total.toFixed(2)}
           </div>
 
-          {/* Checkout Pill Button */}
+          {/* Prominent Proceed to Payment Pill Button */}
           <button
-            onClick={() => navigate('/checkout')}
-            className="flex-1 border-2 border-orange-600 text-orange-600 hover:bg-orange-600 hover:text-white font-extrabold py-3 px-6 rounded-full transition-all text-sm shadow-sm active:scale-95 text-center flex items-center justify-center gap-2"
+            type="button"
+            onClick={() => setIsPaymentModalOpen(true)}
+            className="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-extrabold py-3.5 px-6 rounded-full transition-all text-sm shadow-lg shadow-orange-500/25 active:scale-95 text-center flex items-center justify-center gap-2"
           >
-            <span>Checkout</span>
+            <span>Proceed to Payment</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -302,6 +305,18 @@ export const CartPage: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Four-Option Payment Selection Modal */}
+      <PaymentSelectionModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        onBack={() => setIsPaymentModalOpen(false)}
+        totalAmount={cart.total}
+        onSelectCOD={() => {
+          setIsPaymentModalOpen(false);
+          navigate('/checkout');
+        }}
+      />
     </div>
   );
 };
